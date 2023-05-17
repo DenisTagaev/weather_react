@@ -10,6 +10,7 @@ const Weather = () => {
   const [key, setKey] = useState('');
 
   const source = "https://api.openweathermap.org/";
+  const cacheName = "weather-cache";
 
   useEffect(() => {
     const newKey = `${city.toLowerCase()}&${country.toLowerCase()}`;
@@ -25,32 +26,56 @@ const Weather = () => {
   };
 
   const getWeatherByCoordinates = async (coordinates) => {
-    // console.log('API CALLED'); uncomment to check whether the API is called when the weather is already fetched
+    console.log('API CALLED'); //uncomment to check whether the API is called when the weather is already fetched
     const weatherUrl = `${source}data/2.5/weather?lat=${coordinates[0]}&lon=${coordinates[1]}&units=metric&appid=${env.API_KEY}`;
     const weatherResponse = await axios.get(weatherUrl);
     return weatherResponse.data;
-  }
-
-  const getCachedWeather = () => {
-    const cachedData = sessionStorage.getItem(`weatherin${key}`);
-    return cachedData ? cachedData : null;
   };
 
-  const setCachedWeather = (data) => {
-    sessionStorage.setItem(`weatherin${key}`, JSON.stringify(data));
-    setWeatherData(data);
+  const checkCacheExpiration = async(data) => {
+    const cacheTime = new Date(data.headers.get("date"));
+    const currentTime = new Date();
+
+    if(currentTime-cacheTime < 300000) {
+      return true
+    } else return false;
+  };
+
+  const getCachedWeather = async() => {
+    // const cachedData = sessionStorage.getItem(`weatherin${key}`);
+    // return cachedData ? cachedData : null;
+    const cache = await caches.open(cacheName);
+    const matchedResponse = await cache.match(key);
+
+    if(matchedResponse && checkCacheExpiration(matchedResponse)) {
+      const cachedWeather = await matchedResponse.json();
+      return cachedWeather;
+    } else return null;
+  };
+
+  const setCachedWeather = async(data) => {
+    // sessionStorage.setItem(`weatherin${key}`, JSON.stringify(data));
+    // setWeatherData(data);
+    const cache = await caches.open(cacheName);
+    const newWeatherData = new Response(JSON.stringify(data));
+    await cache.put(key, newWeatherData);
   };
 
   const getWeatherData = async () => {
+    const cachedData = await getCachedWeather();
     
-    if (getCachedWeather()) {
-      setWeatherData(JSON.parse(getCachedWeather()));
+    if(cachedData) {
+      setWeatherData(cachedData);
+      setError(null);
+      return;
+      // setWeatherData(JSON.parse(getCachedWeather()));
     } else {
       try {
         const coordinates = await getCityCoordinates();
         const weather = await getWeatherByCoordinates(coordinates);
-
-        setCachedWeather(weather);
+        setWeatherData(weather);
+        
+        await setCachedWeather(weather);
         setError(null);
       } catch (error) {
         setWeatherData(null);
