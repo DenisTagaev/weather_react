@@ -17,6 +17,18 @@ const Weather = () => {
     setKey(newKey);
   },[city, country]);
 
+  useEffect(() => {
+    const clearCache = () => {
+      caches.delete(cacheName);
+    };
+
+    window.addEventListener("beforeunload", clearCache);
+
+    return () => {
+      window.removeEventListener("beforeunload", clearCache);
+    };
+  }, []);
+
 
   const getCityCoordinates = async () => {
     const geoUrl = `${source}geo/1.0/direct?q=${city},${country}&limit=1&appid=${env.API_KEY}`;
