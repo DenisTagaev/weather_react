@@ -29,6 +29,32 @@ const Weather = () => {
     };
   }, []);
 
+  useEffect(() => {
+    // Get user's current location
+    const getCurrentLocation = () => {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          async(position) => {
+            const { latitude, longitude } = position.coords;
+            const currentLocationWeather = await getWeatherByCoordinates([latitude, longitude]);
+            setWeatherData(currentLocationWeather);
+          },
+          (error) => {
+            console.error(error);
+            setError(
+              "Error retrieving current location. Please enter a city and country."
+            );
+          }
+        );
+      } else {
+        setError(
+          "Geolocation is turned off or is not supported by your browser. Please enter a city and country."
+        );
+      }
+    };
+
+    getCurrentLocation();
+  }, []);
 
   const getCityCoordinates = async () => {
     const geoUrl = `${source}geo/1.0/direct?q=${city},${country}&limit=1&appid=${env.API_KEY}`;
