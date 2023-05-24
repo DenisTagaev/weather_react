@@ -1,23 +1,25 @@
-import React, { useState, useEffect } from "react";
-import axios from "axios";
+import React, { useState, useEffect, FC, FormEvent } from "react";
+import axios, { AxiosResponse } from "axios";
+import IWeather from "../interfaces/Weather";
 import env from "react-dotenv";
 
-const Weather = () => {
+const Weather: FC = () => {
+
   const [city, setCity] = useState("");
   const [country, setCountry] = useState("");
-  const [weatherData, setWeatherData] = useState(null);
-  const [error, setError] = useState(null);
+  const [weatherData, setWeatherData] = useState<IWeather | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [key, setKey] = useState('');
 
-  const source = "https://api.openweathermap.org/";
-  const cacheName = "weather-cache";
+  const source: string = "https://api.openweathermap.org/";
+  const cacheName: string = "weather-cache";
 
-  useEffect(() => {
-    const newKey = `${city.toLowerCase()}&${country.toLowerCase()}`;
+  useEffect((): void => {
+    const newKey: string = `${city.toLowerCase()}&${country.toLowerCase()}`;
     setKey(newKey);
   },[city, country]);
 
-  useEffect(() => {
+  useEffect((): () => void => {
     const clearCache = () => {
       caches.delete(cacheName);
     };
@@ -29,17 +31,17 @@ const Weather = () => {
     };
   }, []);
 
-  useEffect(() => {
+  useEffect((): void => {
     // Get user's current location
     const getCurrentLocation = () => {
       if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(
-          async(position) => {
+          async(position: GeolocationPosition) => {
             const { latitude, longitude } = position.coords;
-            const currentLocationWeather = await getWeatherByCoordinates([latitude, longitude]);
+            const currentLocationWeather: IWeather | null = await getWeatherByCoordinates([latitude, longitude]);
             setWeatherData(currentLocationWeather);
           },
-          (error) => {
+          (error: GeolocationPositionError) => {
             console.error(error);
             setError(
               "Error retrieving current location. Please enter a city and country."
@@ -56,51 +58,49 @@ const Weather = () => {
     getCurrentLocation();
   }, []);
 
-  const getCityCoordinates = async () => {
-    const geoUrl = `${source}geo/1.0/direct?q=${city},${country}&limit=1&appid=${env.API_KEY}`;
-    const response = await axios.get(geoUrl);
-    const { lat, lon } = response.data[0];
+  const getCityCoordinates = async (): Promise<[number, number]> => {
+    const geoUrl: string = `${source}geo/1.0/direct?q=${city},${country}&limit=1&appid=${env.API_KEY}`;
+    const response: AxiosResponse = await axios.get(geoUrl);
+    const { lat, lon }: { lat: number, lon: number }  = response.data[0];
     return [lat, lon];
   };
 
-  const getWeatherByCoordinates = async (coordinates) => {
-    console.log('API CALLED'); //uncomment to check whether the API is called when the weather is already fetched
-    const weatherUrl = `${source}data/2.5/weather?lat=${coordinates[0]}&lon=${coordinates[1]}&units=metric&appid=${env.API_KEY}`;
-    const weatherResponse = await axios.get(weatherUrl);
+  const getWeatherByCoordinates = async (coordinates: number[]): Promise<IWeather> => {
+    // console.log('API CALLED'); /*uncomment to check whether the API is called when the weather is already fetched*/
+    const weatherUrl: string = `${source}data/2.5/weather?lat=${coordinates[0]}&lon=${coordinates[1]}&units=metric&appid=${env.API_KEY}`;
+    const weatherResponse: AxiosResponse = await axios.get(weatherUrl);
     return weatherResponse.data;
   };
 
-  const checkCacheExpiration = async(data) => {
-    const cacheTime = new Date(data.headers.get("date"));
-    const currentTime = new Date();
+  const checkCacheExpiration = async(data: Response): Promise<boolean> => {
+    const cacheTime: Date = new Date(data.headers.get("date") as string);
+    const currentTime: Date = new Date();
 
-    if(currentTime-cacheTime < 300000) {
-      return true
-    } else return false;
+    return currentTime.getTime() - cacheTime.getTime() < 300000;
   };
 
-  const getCachedWeather = async() => {
+  const getCachedWeather = async(): Promise<IWeather | null> => {
     // const cachedData = sessionStorage.getItem(`weatherin${key}`);
     // return cachedData ? cachedData : null;
-    const cache = await caches.open(cacheName);
-    const matchedResponse = await cache.match(key);
+    const cache: Cache = await caches.open(cacheName);
+    const matchedResponse: Response | undefined = await cache.match(key);
 
-    if(matchedResponse && checkCacheExpiration(matchedResponse)) {
-      const cachedWeather = await matchedResponse.json();
+    if(matchedResponse && await checkCacheExpiration(matchedResponse)) {
+      const cachedWeather: Promise<IWeather> = await matchedResponse.json();
       return cachedWeather;
     } else return null;
   };
 
-  const setCachedWeather = async(data) => {
+  const setCachedWeather = async(data: IWeather): Promise<void> => {
     // sessionStorage.setItem(`weatherin${key}`, JSON.stringify(data));
     // setWeatherData(data);
-    const cache = await caches.open(cacheName);
-    const newWeatherData = new Response(JSON.stringify(data));
+    const cache: Cache = await caches.open(cacheName);
+    const newWeatherData: Response = new Response(JSON.stringify(data));
     await cache.put(key, newWeatherData);
   };
 
-  const getWeatherData = async () => {
-    const cachedData = await getCachedWeather();
+  const getWeatherData = async (): Promise<void> => {
+    const cachedData: IWeather | null = await getCachedWeather();
     
     if(cachedData) {
       setWeatherData(cachedData);
@@ -109,11 +109,11 @@ const Weather = () => {
       // setWeatherData(JSON.parse(getCachedWeather()));
     } else {
       try {
-        const coordinates = await getCityCoordinates();
-        const weather = await getWeatherByCoordinates(coordinates);
+        const coordinates: number[] = await getCityCoordinates();
+        const weather: IWeather | null = await getWeatherByCoordinates(coordinates);
         setWeatherData(weather);
         
-        await setCachedWeather(weather);
+        weather && await setCachedWeather(weather);
         setError(null);
       } catch (error) {
         setWeatherData(null);
@@ -122,7 +122,7 @@ const Weather = () => {
     }
   };
 
-  const handleSubmitWeatherForm = (e) => {
+  const handleSubmitWeatherForm = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
     if(city&&country) {
@@ -141,7 +141,7 @@ const Weather = () => {
             <span className="mr-2">City:</span>
             <input
               type="text"
-              minLength='2'
+              minLength={2}
               className="relative rounded-xl py-2 px-2 w-1/2 bg-slate-300 bg-opacity-60 text-white placeholder-teal-400"
               value={city}
               onChange={(e) => setCity(e.target.value)}
@@ -151,7 +151,7 @@ const Weather = () => {
             <span className="mr-2">Country:</span>
             <input
               type="text"
-              maxLength="2"
+              maxLength={2}
               className="relative rounded-xl py-2 px-2 w-1/2 bg-slate-300 bg-opacity-60 text-white placeholder-teal-400"
               value={country}
               onChange={(e) => setCountry(e.target.value)}
@@ -159,7 +159,8 @@ const Weather = () => {
           </label>
           <button
             type="submit"
-            className="bg-teal-500 hover:bg-teal-600 text-white rounded px-4 py-2"
+            disabled={!city || !country}
+            className="enabled:bg-teal-500 disabled:opacity-75 enabled:hover:bg-teal-600 enabled:text-white rounded px-4 py-2"
           >
             Get Weather
           </button>
