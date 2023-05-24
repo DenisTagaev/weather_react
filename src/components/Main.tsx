@@ -20,13 +20,13 @@ const Weather: FC = () => {
   },[city, country]);
 
   useEffect((): () => void => {
-    const clearCache = () => {
+    const clearCache = (): void => {
       caches.delete(cacheName);
     };
 
     window.addEventListener("beforeunload", clearCache);
 
-    return () => {
+    return (): void => {
       window.removeEventListener("beforeunload", clearCache);
     };
   }, []);
@@ -37,14 +37,14 @@ const Weather: FC = () => {
       if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(
           async(position: GeolocationPosition) => {
-            const { latitude, longitude } = position.coords;
+            const { latitude, longitude }: { latitude: number, longitude: number } = position.coords;
             const currentLocationWeather: IWeather | null = await getWeatherByCoordinates([latitude, longitude]);
             setWeatherData(currentLocationWeather);
           },
           (error: GeolocationPositionError) => {
             console.error(error);
             setError(
-              "Error retrieving current location. Please enter a city and country."
+              "Error retrieving current location. Please enter another city and country."
             );
           }
         );
@@ -154,6 +154,7 @@ const Weather: FC = () => {
               maxLength={2}
               className="relative rounded-xl py-2 px-2 w-1/2 bg-slate-300 bg-opacity-60 text-white placeholder-teal-400"
               value={country}
+              placeholder="Use 2 letter country code"
               onChange={(e) => setCountry(e.target.value)}
             />
           </label>
